@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "bayesian-prediction"
+version = "0.0.0"
+description = ""
+authors = ["Charles Gendreau <charles.gendreau@epfl.ch>"]
+readme = "README.md"
+ # packages = [{include = "src"}]  # needed only if we want to package the project
+package-mode = false  # switch to true if we want to package the project
+[tool.poetry.dependencies]
+python = ">=3.11"
+pre-commit = "^4.2.0"
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.5"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
