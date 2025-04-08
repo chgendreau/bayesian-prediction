@@ -7,8 +7,18 @@ readme = "README.md"
  # packages = [{include = "src"}]  # needed only if we want to package the project
 package-mode = false  # switch to true if we want to package the project
 [tool.poetry.dependencies]
-python = ">=3.11"
+python = ">=3.11,<3.14"
 pre-commit = "^4.2.0"
+numpy = "^2.2.4"
+scipy = "^1.15.2"
+matplotlib = "^3.10.1"
+seaborn = "^0.13.2"
+yfinance = "^0.2.55"
+statsmodels = "^0.14.4"
+arviz = "^0.21.0"
+pymc = "^5.21.1"
+ipywidgets = "^8.1.5"
+tqdm = "^4.67.1"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
