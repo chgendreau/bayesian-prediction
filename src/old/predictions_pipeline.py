@@ -21,8 +21,8 @@ def kurtosis_function(data: np.ndarray):
 
 
 THETA_FUNCS = {
-    "mean": mean_function,
-    "std": std_function,
+    # "mean": mean_function,
+    # "std": std_function,
     "skewness": skewness_function,
     # "kurtosis": kurtosis_function,
 }
@@ -64,5 +64,3 @@ def predictions_pipeline():
 
 if __name__ == "__main__":
     predictions_pipeline()
-                
-            #Hello
