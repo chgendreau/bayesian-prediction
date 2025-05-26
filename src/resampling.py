@@ -1,8 +1,15 @@
+# flake8: noqa
 """File with all PR methods for resampling the data."""
 import scipy.stats as stats
 import numpy as np
-from tqdm import tqdm
-from src.utils import var1_estimate_A_2d, var1_estimate_sigma_eps
+from src.utils import (
+    var1_estimate_2d_sequential,
+    var1_s_statistics_2d,
+)
+from src.parameters import (
+    var1_estimate_A_2d,
+    var1_estimate_sigma_eps,
+)
 
 
 def empirical_res(X_obs: np.ndarray, N: int) -> np.ndarray:
@@ -24,7 +31,7 @@ def empirical_res(X_obs: np.ndarray, N: int) -> np.ndarray:
         return X_resampled[:N]
     
     # Generating new samples
-    for n in tqdm(range(n_obs, N), desc="Resampling"):
+    for n in range(n_obs, N):
         X_new = np.random.choice(X_resampled, size=1, replace=True)
         X_resampled = np.append(X_resampled, X_new)
     
@@ -52,7 +59,7 @@ def empirical_normal_res(X_obs: np.ndarray, N: int) -> np.ndarray:
     variance = np.var(X_resampled, ddof=0)  # default biased estimator 
 
     # Resampling data
-    for n in tqdm(range(n_obs, N), desc="Resampling"):
+    for n in range(n_obs, N):
         # Create new sample and add it to the data
         X_new = np.random.normal(loc=mean, scale=np.sqrt(variance), size=1)
         X_resampled = np.append(X_resampled, X_new)
@@ -88,7 +95,7 @@ def empirical_t_res(X_obs: np.ndarray, N: int, df: int | float = None) -> np.nda
         df, _, _ = stats.t.fit(X_resampled, floc=mean)
 
     # Resampling data
-    for n in tqdm(range(n_obs, N), desc="Resampling"):
+    for n in range(n_obs, N):
         # Create new sample and add it to the data
         X_new = stats.t.rvs(df, loc=mean, scale=np.sqrt(variance*(df-2)/df), size=1)
         X_resampled = np.append(X_resampled, X_new)
@@ -101,39 +108,65 @@ def empirical_t_res(X_obs: np.ndarray, N: int, df: int | float = None) -> np.nda
 ############################
 # VAR(1) 2D
 ############################
-# TODO: Write the sequential upgrade of A_hat and Sigma_hat
-def var1_2d_res(X_obs: np.ndarray, N: int) -> np.ndarray:
+def var1_2d_res(X_obs: np.ndarray, N: int, get_statistics: bool = False) -> np.ndarray:
     """Resample the data using VAR(1) model.
     Args:
         X_obs (np.ndarray): Observed data (2 dim only).
         N (int): Number of samples to generate.
+        get_statistics (bool): If True, return the statistics used to
+            generate the data.
     Returns:
         np.ndarray: Resampled data (including the observed one).
+        OR if get_statistics is True:
+        Tuple[np.ndarray, np.ndarray, np.ndarray]: Resampled data (including
+            the observed one), A_hat and Sigma_hat.
     """
     # Initial parameter estimates using observed data
-    n_obs = X_obs.shape[0]
+    n_obs, m = X_obs.shape
+
+    if n_obs < m:
+        raise ValueError(f"n_obs={n_obs} is smaller than dim m={m}.")
+
+    # Getting initial estimates and statistics
     A_hat = var1_estimate_A_2d(X_obs)
     Sigma_hat = var1_estimate_sigma_eps(X_obs, A_hat)
+    E_statistic = Sigma_hat.copy() * n_obs
+
+    s11, s22, s12 = var1_s_statistics_2d(X_obs)
+    S_statistic = np.array([[s11, s12],
+                            [s12, s22]])
 
     # Array to store all the data
     X_resampled = X_obs.copy()
     if n_obs >= N:
         return X_resampled[:N]
 
-    for n in tqdm(range(n_obs, N), desc="Resampling"):
+    for n in range(n_obs+1, N+1):
         # Getting last observation
-        X_prev = X_resampled[-1]
-        # Forecast mean
-        x_mean = A_hat @ X_prev
+        X_prev = X_resampled[-1]  # Last observation (m x 1)
+        # Forecast 
+        x_forecast = A_hat @ X_prev.reshape(-1, 1)  # Forecast (m x 1)
+        x_forecast = x_forecast.reshape(m,)  # Convert to 1D array to keep consistent size
         # Generate random error
         eps = np.random.multivariate_normal(mean=np.zeros(2), cov=Sigma_hat)
         # Generate new sample
-        X_new = x_mean + eps
+        X_new = x_forecast + eps
         # Append new sample to the data
-        X_resampled = np.append(X_resampled, X_new.reshape(1, 2), axis=0)
-        # Update the A_hat and Sigma_hat using the new sample
-        A_hat = var1_estimate_A_2d(X_resampled)
-        Sigma_hat = var1_estimate_sigma_eps(X_resampled, A_hat)
+        X_resampled = np.append(X_resampled, X_new.reshape(1, -1), axis=0)
 
-    # Return the resampled data
-    return X_resampled
+        # # Update the A_hat and Sigma_hat using the new sample
+        # A_hat = var1_estimate_A_2d(X_resampled)
+        # Sigma_hat = var1_estimate_sigma_eps(X_resampled, A_hat)
+        # Update the statistics using new sample
+        A_hat, E_statistic, S_statistic = var1_estimate_2d_sequential(
+            X_new, X_prev, A_hat, S_statistic, E_statistic
+        )
+        Sigma_hat = E_statistic / n
+
+    if get_statistics:
+        # Return the resampled data and the statistics
+        Sigma_hat = E_statistic / N
+        return X_resampled, A_hat, Sigma_hat
+    else:
+        # Return the resampled data
+        return X_resampled

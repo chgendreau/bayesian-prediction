@@ -1,7 +1,9 @@
 from scipy import stats
 from statsmodels.distributions.empirical_distribution import ECDF
+import json
+import os
 import numpy as np
-from typing import Tuple
+from typing import Dict, List, Any, Tuple
 
 
 def wasserstein_distance(x, y):
@@ -20,6 +22,43 @@ def ecdf_inv(data, y):
     return np.quantile(data, y)
 
 
+def load_inference_results(experiment_name: str) -> Tuple[Dict[str, Any], Dict[str, Any], np.ndarray]:
+    """Load inference results, config from JSON files and X_obs.npy file."""
+    # Load inference results
+    file_path = os.path.join("inference_results", experiment_name, "inferences.json")  
+    with open(file_path, 'r') as f:
+        results = json.load(f)
+
+    # Load configuration file
+    config_path = os.path.join("inference_results", experiment_name, "experiment_config.json")
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+
+    # Load X_obs.npy file
+    x_obs_path = os.path.join("inference_results", experiment_name, "X_obs.npy")
+    X_obs = np.load(x_obs_path)
+    
+    # Convert list-of-lists to numpy arrays where appropriate
+    for theta_name in results:
+        for method_name in results[theta_name]:
+            samples = results[theta_name][method_name]
+            
+            # Check if samples are a list of lists (matrix) or list of list of lists (3D)
+            if isinstance(samples, list):
+                if all(isinstance(x, list) for x in samples):
+                    if all(isinstance(y, list) for x in samples for y in x):
+                        # 3D array: list of matrices
+                        results[theta_name][method_name] = np.array(samples)
+                    else:
+                        # 2D array: matrix
+                        results[theta_name][method_name] = np.array(samples)
+                else:
+                    # 1D array: vector
+                    results[theta_name][method_name] = np.array(samples)
+    
+    return results, config, X_obs
+
+
 # Helper functions for var1_2d_pr
 def var1_s_statistics_2d(x_obs: np.ndarray) -> Tuple[float, float, float]:
     """
@@ -29,16 +68,16 @@ def var1_s_statistics_2d(x_obs: np.ndarray) -> Tuple[float, float, float]:
     """
     # Exclude the last observation for these statistics
     x = x_obs[:-1]
-    s11 = np.sum(x[:, 0]**2)
-    s22 = np.sum(x[:, 1]**2)
-    s12 = np.sum(x[:, 0] * x[:, 1])
+    s11 = np.sum(x[:, 0]**2)     # Sum of squares for first variable
+    s22 = np.sum(x[:, 1]**2)     # Sum of squares for second variable
+    s12 = np.sum(x[:, 0] * x[:, 1])  # Sum of products between variables
 
     return s11, s22, s12
 
 
 def var1_h_statistics_2d(
-        x_obs: np.ndarray
-        ) -> Tuple[float, float, float, float]:
+    x_obs: np.ndarray
+) -> Tuple[float, float, float, float]:
     """
     Compute the h:
     h_n^{(1)} = sum(y_i^{(1)}*y_{i+1}^{(1)}), h_n^{(2)} = sum(y_i^{(2)}*y_{i+1}^{(2)}),
@@ -46,6 +85,7 @@ def var1_h_statistics_2d(
     """
     # Use all observations except the last for the first term
     x_current = x_obs[:-1]
+
     # Use all observations except the first for the second term
     x_next = x_obs[1:]
     h11 = np.sum(x_current[:, 0] * x_next[:, 0])
@@ -56,41 +96,64 @@ def var1_h_statistics_2d(
     return h11, h22, h12, h21
 
 
-def var1_estimate_A_2d(x_obs: np.ndarray) -> np.ndarray:
+# Recursive update for VAR(1) model
+def var1_estimate_2d_sequential(
+        x_n: np.ndarray,
+        x_n_1: np.ndarray,
+        A_n_1: np.ndarray,
+        S_n_1: np.ndarray,
+        E_n_1: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Estimate the VAR(1) coefficient matrix A using the method of moments.
-    Only works for 2D data.
+    Perform one step of the 2D VAR(1) recursive update to estimate \hat A and \hat \Sigma_\epsilon.
+
+    Parameters
+    ----------
+    x_n : array-like, shape (2,)
+        The new observation x_n.
+    x_n_1 : array-like, shape (2,)
+        The previous observation x_{n-1}.
+    A_n_1 : array-like, shape (2,2), optional
+        The previous estimator \hat A_{n-1}. If provided together with
+        S_prev, the full recursive update is performed.
+    S_n_1 : array-like, shape (2,2), optional
+        The previous scatter matrix S_{n-1} = \sum_{i=0}^{n-1} x_i x_i^T.
+    E_n_1 : array-like, shape (2,2), optional
+        The previous sum of squared residuals matrix E_{n-1} = \sum_{i=0}^{n-1} (x_i - A_n_1 x_{i-1})(x_i - A_n_1 x_{i-1})^T.
+        = \sum_{i=0}^{n-1} r_i r_i^T.
+
+    Returns
+    -------
+    Tuple
+        A_new : array-like, shape (2,2)
+            The updated estimator \hat A_n.
+        S_new : array-like, shape (2,2)
+            The updated scatter matrix S_n = \sum_{i=0}^{n} x_i x_i^T.
+        E_new : array-like, shape (2,2)
+            The updated sum of squared residuals matrix E_n = \sum_{i=0}^{n} (x_i - A_n x_{i-1})(x_i - A_n x_{i-1})^T.
+            = \sum_{i=0}^{n} r_i r_i^T.
     """
-    # Compute S and h statistics
-    s11, s22, s12 = var1_s_statistics_2d(x_obs)
-    h11, h22, h12, h21 = var1_h_statistics_2d(x_obs)
-    # Compute the determinant
-    D = s11 * s22 - s12**2
-    # Compute A using the formula derived earlier
-    a11 = (h11 * s22 - h21 * s12) / D
-    a12 = (-h11 * s12 + h21 * s11) / D
-    a21 = (h12 * s22 - h22 * s12) / D
-    a22 = (-h12 * s12 + h22 * s11) / D
+    x_n = np.asarray(x_n).reshape(2,)
+    x_n_1 = np.asarray(x_n_1).reshape(2,)
 
-    A_hat = np.array([[a11, a12], [a21, a22]])
+    # update scatter matrix
+    S_new = (S_n_1 if S_n_1 is not None else np.zeros((2, 2))) \
+        + np.outer(x_n_1, x_n_1)
 
-    return A_hat
+    A_n_1 = np.asarray(A_n_1).reshape(2, 2)
+    # innovation
+    r = x_n - A_n_1.dot(x_n_1)
+    # determinant
+    delta = np.linalg.det(S_new)
+    # adjugate of a 2×2
+    adj = np.array([[S_new[1, 1], -S_new[0, 1]],
+                    [-S_new[1, 0],  S_new[0, 0]]])
+    # inverse
+    S_inv = adj / delta
+    # matrix increment
+    Delta = np.outer(r, x_n_1).dot(S_inv)
+    # updated A
+    A_new = A_n_1 + Delta
+    E_new = E_n_1 + np.outer(r, r)
 
-
-def var1_estimate_sigma_eps(
-        x_obs: np.ndarray, A_hat: np.ndarray = None
-        ) -> np.ndarray:
-    """
-    Estimate the covariance matrix $\Sigma_\varepsilon$ of the residuals.
-    Any dimension is allowed.
-    """
-    n = len(x_obs)
-    if A_hat is None:
-        # Estimate A_hat using the method of moments
-        A_hat = var1_estimate_A_2d(x_obs)
-    # Calculate residuals: ε_t = Y_t - A_hat Y_{t-1}
-    residuals = x_obs[1:] - np.array([A_hat @ x for x in x_obs[:-1]])
-    # Estimate the covariance matrix
-    Sigma_hat = (residuals.T @ residuals) / (n - 1)
-
-    return Sigma_hat
+    return A_new, S_new, E_new
