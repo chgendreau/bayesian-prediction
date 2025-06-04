@@ -26,7 +26,7 @@ def inference_pipeline_VAR1(experiment_name: str, experiment_config: dict):
         X0=experiment_config.get('X0', None),
     )
     n_obs = experiment_config['n_obs']
-    X_obs = X_all[:, :n_obs]
+    X_obs = X_all[:n_obs]
 
     # Filter theta_hat_func_dict to only include the specified thetas
     theta_funcs = {k: THETA_HAT_FUNC_DICT[k] for k in experiment_config['thetas'] if k in THETA_HAT_FUNC_DICT}

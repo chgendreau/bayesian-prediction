@@ -50,17 +50,23 @@ def predictive_resampling_posterior(
     theta_hat_vals_dict = {key: [] for key in theta_hat_func_dict.keys()}
     # Resampling parameters
     resamp_params = {"X_obs": X_obs, "N": N}
+
     # appending new param for empirical_t
     if resampling_function == empirical_t_res:
         resamp_params["df"] = df
 
     # Iterate over B bootstrap samples
-    for _ in tqdm(range(B), desc="Bootstrapping"):
-        # Resample the data
-        X_resampled = resampling_function(**resamp_params)
-        # Estimate the parameter
-        for key, theta_hat_func in theta_hat_func_dict.items():
-            theta_hat_vals_dict[key].append(theta_hat_func(X_resampled))
+    for l in tqdm(range(B), desc="Bootstrapping"):
+        try:
+            # Resample the data
+            X_resampled = resampling_function(**resamp_params)  
+            # Estimate the parameter
+            for key, theta_hat_func in theta_hat_func_dict.items():
+                theta_hat_vals_dict[key].append(theta_hat_func(X_resampled))
+        except Exception as e:
+            print("Warning: resampling failed for iteration", l)
+            print(f"Error: {e}")
+            continue
 
     return theta_hat_vals_dict
 
@@ -72,9 +78,10 @@ def likelihood_prior_posterior(
     X: np.ndarray,
     likelihood_prior_config: dict, 
     theta_hat_func_dict: dict,
-    n_samples: int = 250,
+    N: int = 5000,
+    n_samples: int = 2000,
     n_tune: int = 1000,
-    random_seed: int = 42,
+    random_seed: int = None,
 ) -> Dict[str, np.ndarray]:
     """
     Perform Bayesian inference using specified priors.
@@ -116,6 +123,7 @@ def likelihood_prior_posterior(
              
         theta_hat_func_dict: Dictionary of functions to compute statistics, e.g.:
             {'mean': np.mean, 'std': np.std, 'skewness': scipy.stats.skew}
+        N: Number of posterior predictive samples to generate to compute statistics
         n_samples: Number of posterior samples per chain
         n_tune: Number of tuning samples
         random_seed: Random seed for reproducibility
@@ -176,6 +184,13 @@ def likelihood_prior_posterior(
                 observed=X,
                 **likelihood_args
             )
+            # Create the X_pred variable for posterior predictive sampling
+            X_pred = getattr(pm, likelihood_model)(
+                'X_pred',
+                observed=X,
+                shape=N,
+                **likelihood_args
+            )
         else:
             raise ValueError(f"Unsupported likelihood model: {likelihood_model}")
 
@@ -186,12 +201,13 @@ def likelihood_prior_posterior(
             random_seed=random_seed,
             return_inferencedata=False
         )
-        
         # Generate posterior predictive samples
+        # Update
         ppc = pm.sample_posterior_predictive(
-            trace, 
-            var_names=['likelihood'],  # Only need likelihood predictions
+            trace,
+            var_names=['X_pred'],  # same as likelihood but with different sizes
         )
+        
 
     # Extract inferred parameters samples
     theta_hat_vals_dict = {}
@@ -199,7 +215,7 @@ def likelihood_prior_posterior(
         theta_hat_vals_dict[param_name] = trace.get_values(param_name)
     
     # Get predictive samples
-    pred_samples = ppc.posterior_predictive['likelihood'].values
+    pred_samples = ppc.posterior_predictive['X_pred'].values
     
     # Reshape if needed (from 3D to 2D)
     if len(pred_samples.shape) == 3:
@@ -293,7 +309,7 @@ def bvar_inference(
     bvar_prior_config: dict,
     n_draws: int = 250,
     n_tune: int = 1000,
-    random_seed: int = 42,
+    random_seed: int = None,
 ) -> Dict[str, np.ndarray]:
     """
     Perform Bayesian inference on Vector Autoregression (VAR) model parameters.
@@ -441,12 +457,7 @@ def bvar_inference(
         
         # Stack the coefficients for each equation into a matrix
         coefficients_matrix = pm.Deterministic('coefficients', pm.math.stack(coefficients, axis=1))
-
-
-
-
-
-        
+  
         # Set up covariance prior
         if parameters['covariance'] == 'LKJ' or \
         (isinstance(parameters['covariance'], dict) and parameters['covariance']['dist'] == 'LKJ'):
@@ -528,7 +539,7 @@ def bvar_analytical_posterior(
     prior_scale: Optional[np.ndarray] = None,
     prior_df: Optional[float] = None,
     n_draws: int = 1000,
-    random_seed: int = 42
+    random_seed: int = None,
 ) -> Dict[str, np.ndarray]:
     """
     Compute the exact analytical posterior distribution for a VAR(p) model
@@ -555,15 +566,9 @@ def bvar_analytical_posterior(
     Returns:
         Dictionary of parameter posterior samples
     """
-    # Set seed for reproducibility
-    np.random.seed(random_seed)
-
-    # # Transpose X to match paper notation (n x m)
-    # X = X.T
-    # n, m = X.shape  # n observation, m dimension
-    # if m > n:
-    #     raise ValueError("Number of dimensions (m) cannot exceed number of observations (n).")
     n, m = X.shape
+    if m > n:
+        raise ValueError("Number of dimensions (m) cannot exceed number of observations (n).")
     
     # Create design matrix Z (called X in the paper)
     Z = _create_var_design_matrix(X, p)

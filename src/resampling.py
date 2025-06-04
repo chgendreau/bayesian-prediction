@@ -139,26 +139,29 @@ def var1_2d_res(X_obs: np.ndarray, N: int, get_statistics: bool = False) -> np.n
     # Array to store all the data
     X_resampled = X_obs.copy()
     if n_obs >= N:
+        raise ValueError("N must be greater than n_obs.")
         return X_resampled[:N]
 
     for n in range(n_obs+1, N+1):
         # Getting last observation
         X_prev = X_resampled[-1]  # Last observation (m x 1)
         # Forecast 
-        x_forecast = A_hat @ X_prev.reshape(-1, 1)  # Forecast (m x 1)
+
+        x_forecast = A_hat @ X_prev  # Forecast (m x 1)
         x_forecast = x_forecast.reshape(m,)  # Convert to 1D array to keep consistent size
         # Generate random error
         eps = np.random.multivariate_normal(mean=np.zeros(2), cov=Sigma_hat)
         # Generate new sample
         X_new = x_forecast + eps
+
         # Append new sample to the data
         X_resampled = np.append(X_resampled, X_new.reshape(1, -1), axis=0)
 
-        # # Update the A_hat and Sigma_hat using the new sample
+        # Update the A_hat and Sigma_hat using the new sample
         # A_hat = var1_estimate_A_2d(X_resampled)
         # Sigma_hat = var1_estimate_sigma_eps(X_resampled, A_hat)
         # Update the statistics using new sample
-        A_hat, E_statistic, S_statistic = var1_estimate_2d_sequential(
+        A_hat, S_statistic, E_statistic = var1_estimate_2d_sequential(
             X_new, X_prev, A_hat, S_statistic, E_statistic
         )
         Sigma_hat = E_statistic / n

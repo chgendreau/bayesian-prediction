@@ -68,7 +68,8 @@ def inference_pipeline1D(experiment_name: str, experiment_config: dict):
             X=X_obs,
             likelihood_prior_config=method_config,
             theta_hat_func_dict=theta_funcs,
-            n_samples=method_config.get('n_samples', 250),
+            N=experiment_config.get('N', 5000),
+            n_samples=method_config.get('n_samples', 1000),
             n_tune=method_config.get('n_tune', 1000),
             random_seed=method_config.get('random_seed', 42)
         )
@@ -108,35 +109,35 @@ def inference_pipeline1D(experiment_name: str, experiment_config: dict):
     np.save(output_dir / "X_obs.npy", X_obs)
 
     # Compute true parameter values for comparison
-    true_theta_values = {}
-    for theta_name, theta_func in theta_funcs.items():
-        true_theta_values[theta_name] = theta_func(X_all)
+    # true_theta_values = {}
+    # for theta_name, theta_func in theta_funcs.items():
+    #     true_theta_values[theta_name] = theta_func(X_all)
 
-    ############################################################
-    # Plotting
-    ############################################################
-    # Plot the results for each theta
-    for theta_name, method_samples in theta_samples_dict.items():
-        # Create a clean dictionary for plotting - exactly matching the expected format
-        plot_data = {method_name: samples for method_name, samples in method_samples.items()}
+    # ############################################################
+    # # Plotting
+    # ############################################################
+    # # Plot the results for each theta
+    # for theta_name, method_samples in theta_samples_dict.items():
+    #     # Create a clean dictionary for plotting - exactly matching the expected format
+    #     plot_data = {method_name: samples for method_name, samples in method_samples.items()}
         
-        # Create the plot
-        fig = plot_posterior_distributions(
-            plot_data,  # This is now a dict with {method_name: samples_array}
-            true_theta=true_theta_values.get(theta_name),
-            plot_type='both',
-            bins=100,
-            figsize=(10, 6),
-            title=f"Posterior Distribution of {theta_name} - {experiment_name}",
-            xlabel=f"{theta_name} estimates",
-            ylabel="Density",
-            show_legend=True,
-            alpha=0.3
-        )
+    #     # Create the plot
+    #     fig = plot_posterior_distributions(
+    #         plot_data,  # This is now a dict with {method_name: samples_array}
+    #         true_theta=true_theta_values.get(theta_name),
+    #         plot_type='both',
+    #         bins=100,
+    #         figsize=(10, 6),
+    #         title=f"Posterior Distribution of {theta_name} - {experiment_name}",
+    #         xlabel=f"{theta_name} estimates",
+    #         ylabel="Density",
+    #         show_legend=True,
+    #         alpha=0.3
+    #     )
         
-        # Save the plot
-        fig.savefig(img_dir / f"{theta_name}_posterior.png", dpi=300, bbox_inches='tight')
-        plt.close(fig)
+    #     # Save the plot
+    #     fig.savefig(img_dir / f"{theta_name}_posterior.png", dpi=300, bbox_inches='tight')
+    #     plt.close(fig)
 
 
 def main():

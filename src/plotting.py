@@ -1,3 +1,4 @@
+from matplotlib.pylab import eig
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -13,7 +14,6 @@ def plot_posterior_boxplots(
     title: str = "",
     xlabel: str = "Value",
     figsize_base: tuple = (8, 4),
-    colors: Optional[List[str]] = None,
     show_method_names: bool = True,
     method_name_pos: str = "left",  # 'left', 'above', or 'below'
     whisker_width: float = 1.5,
@@ -46,13 +46,10 @@ def plot_posterior_boxplots(
     # Create figure and axes
     fig, ax = plt.subplots(figsize=figsize)
     
-    # Set default colors if not provided
-    if colors is None:
-        colors = plt.cm.tab10.colors
-    
-    # Prepare data for boxplot
+    # Prepare data for boxplot removing nan
     method_names = list(theta_samples.keys())
-    samples_list = [theta_samples[method] for method in method_names]
+    samples_list = [theta_samples[method][~np.isnan(theta_samples[method])] for method in method_names]
+
     positions = np.arange(n_methods, 0, -1)  # Positions for boxplots
     
     # Create boxplots
@@ -68,36 +65,21 @@ def plot_posterior_boxplots(
     
     # Set colors for boxplots
     for i, box in enumerate(boxplots['boxes']):
-        box_color = colors[i % len(colors)]
         # box.set(facecolor=box_color, alpha=0.6)
         box.set(alpha=0.6)
         
         # Also set the color for whiskers, caps, and median
-        for whisker in boxplots['whiskers'][i*2:i*2+2]:
-            whisker.set(color=box_color, linewidth=1.5)
-        for cap in boxplots['caps'][i*2:i*2+2]:
-            # cap.set(color=box_color, linewidth=1.5)
-            cap.set(linewidth=1.5)
-        boxplots['medians'][i].set(color='black', linewidth=2)
+        # for whisker in boxplots['whiskers'][i*2:i*2+2]:
+        #     whisker.set(color=box_color, linewidth=1.5)
+        # for cap in boxplots['caps'][i*2:i*2+2]:
+        #     # cap.set(color=box_color, linewidth=1.5)
+        #     cap.set(linewidth=1.5)
+        # boxplots['medians'][i].set(color='black', linewidth=2)
     
-    # Add method names based on position preference
+    # Add method names 
     if show_method_names:
-        if method_name_pos == 'left':
-            # Add method names as y-tick labels
-            ax.set_yticks(positions)
-            ax.set_yticklabels(method_names)
-        else:
-            # Remove y-ticks
-            ax.set_yticks([])
-            
-            # Add method names as text annotations
-            for i, method in enumerate(method_names):
-                if method_name_pos == 'above':
-                    ax.text(ax.get_xlim()[0], positions[i] + 0.3, method, 
-                            va='bottom', ha='left', fontweight='bold')
-                else:  # below
-                    ax.text(ax.get_xlim()[0], positions[i] - 0.3, method, 
-                            va='top', ha='left', fontweight='bold')
+        ax.set_yticks(positions)
+        ax.set_yticklabels(method_names)
     else:
         # Remove y-ticks if not showing method names
         ax.set_yticks([])
@@ -107,28 +89,28 @@ def plot_posterior_boxplots(
         if isinstance(true_theta, (int, float, np.number)):
             # Single scalar value
             ax.axvline(x=true_theta, color='black', linestyle='--', linewidth=2, 
-                      label='True value')
-            ax.legend(loc='upper right')
+                      label='True $\\theta$')
+            # ax.legend(loc='upper right')
         elif isinstance(true_theta, np.ndarray) and true_theta.ndim == 1:
             # Vector of true values - add all as vertical lines
             for i, val in enumerate(true_theta):
                 ax.axvline(x=val, color='black', linestyle='--', linewidth=2, 
-                          label='True value' if i == 0 else "")
-            ax.legend(loc='upper right')
+                          label='True $\\theta$' if i == 0 else "")
+            # ax.legend(loc='upper right')
 
     # Add observed estimate if provided
     if theta_hat_obs is not None:
         if isinstance(theta_hat_obs, (int, float, np.number)):
             # Single scalar value
             ax.axvline(x=theta_hat_obs, color='red', linestyle=':', linewidth=1, 
-                      label='Observed estimate')
-            ax.legend(loc='upper left')
+                      label='$\\hat{\\theta}_{obs}$')
+            # ax.legend(loc='upper left')
         elif isinstance(theta_hat_obs, np.ndarray) and theta_hat_obs.ndim == 1:
             # Vector of observed estimates - add all as vertical lines
             for i, val in enumerate(theta_hat_obs):
                 ax.axvline(x=val, color='red', linestyle=':', linewidth=1, 
-                          label='Observed estimate' if i == 0 else "")
-            ax.legend(loc='upper left')
+                          label='$\\hat{\\theta}_{obs}$' if i == 0 else "")
+            # ax.legend(loc='upper left')
     
     # Set title and labels
     if title:
@@ -136,7 +118,7 @@ def plot_posterior_boxplots(
     elif param_name:
         ax.set_title(f"Posterior Distribution of {param_name}", fontsize=14, pad=10)
         
-    ax.set_xlabel(xlabel, fontsize=12)
+    ax.set_xlabel(xlabel, fontsize=11)
     
     # Remove top and right spines
     ax.spines['top'].set_visible(False)
@@ -150,31 +132,22 @@ def plot_posterior_boxplots(
     return fig, ax
 
 
-def plot_posterior_boxplots_matrix(
+def plot_posterior_eigvals_boxplots(
     theta_samples: Dict[str, np.ndarray], 
-    param_name: str = "",
-    true_theta: Optional[np.ndarray] = None,
-    theta_hat_obs: Optional[np.ndarray] = None,
-    title: str = "",
-    xlabel: str = "Value",
-    figsize_base: tuple = (8, 4),
-    colors: Optional[List[str]] = None,
-    show_method_names: bool = True,
-    method_name_pos: str = "left",  # 'left', 'above', or 'below'
+    true_theta: Optional[Union[float, np.ndarray]] = None,
+    theta_hat_obs: Optional[Union[float, np.ndarray]] = None,
+    figsize_base: tuple = (12, 4),
     whisker_width: float = 1.5,
     showfliers: bool = True
 ) -> plt.Figure:
     """
     Plot horizontal boxplots for parameter samples from different inference methods.
-    Each subplot correspond to a coordinate of each sample.
     
     Args:
-        theta_samples: Dictionary with method names as keys and sample arrays as values
+        theta_samples: Dictionary with method names as keys and sample arrays of matrices as values
         param_name: Name of the parameter being plotted
-        true_theta: True parameter value(s) to mark with vertical line(s)
+        true_theta: True parameter matrix-value (optional)
         theta_hat_obs: Observed estimated value of the parameter (optional)
-        title: Plot title (if empty, will use param_name)
-        xlabel: Label for the x-axis
         figsize_base: Base figure size (width, height) - will be adjusted for number of methods
         colors: Optional list of colors for the boxplots
         show_method_names: Whether to show method names
@@ -190,106 +163,63 @@ def plot_posterior_boxplots_matrix(
     figsize = (figsize_base[0], figsize_base[1] + 0.5 * n_methods)
     
     # Create figure and axes
-    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=figsize)
-    
-    # Set default colors if not provided
-    if colors is None:
-        colors = plt.cm.tab10.colors
-    
-    for i in range(2):
-        for j in range(2):
-            ax = axs[i, j]
-            ax.set_title(f"{param_name}_({i+1}, {j+1})", fontsize=12)  # noqa
-            ax.set_xlabel(xlabel, fontsize=12)
+    fig, axes = plt.subplots(1, 2, figsize=figsize)
 
-            
-            # Prepare data for boxplot
-            method_names = list(theta_samples.keys())
-            samples_list = [theta_samples[method][:, i, j] for method in method_names]
-            positions = np.arange(n_methods, 0, -1)
-            # Prepare data for boxplot
-            method_names = list(theta_samples.keys())
-            samples_list = [np.array(theta_samples[method])[:, i, j] for method in method_names]
-            positions = np.arange(n_methods, 0, -1)  # Positions for boxplots
-    
-            # Create boxplots
-            boxplots = ax.boxplot(
-                samples_list, 
-                vert=False, 
-                patch_artist=True,
-                positions=positions,
-                widths=0.6,
-                whis=whisker_width,
-                showfliers=showfliers
-            )
-    
-            # Set colors for boxplots
-            for i, box in enumerate(boxplots['boxes']):
-                box_color = colors[i % len(colors)]
-                # box.set(facecolor=box_color, alpha=0.6)
-                box.set(alpha=0.6)
-                
-                # Also set the color for whiskers, caps, and median
-                for whisker in boxplots['whiskers'][i*2:i*2+2]:
-                    whisker.set(color=box_color, linewidth=1.5)
-                for cap in boxplots['caps'][i*2:i*2+2]:
-                    # cap.set(color=box_color, linewidth=1.5)
-                    cap.set(linewidth=1.5)
-                boxplots['medians'][i].set(color='black', linewidth=2)
-            
-            # Add method names based on position preference
-            if show_method_names:
-                if method_name_pos == 'left':
-                    # Add method names as y-tick labels
-                    ax.set_yticks(positions)
-                    ax.set_yticklabels(method_names)
-                else:
-                    # Remove y-ticks
-                    ax.set_yticks([])
-                    
-                    # Add method names as text annotations
-                    for i, method in enumerate(method_names):
-                        if method_name_pos == 'above':
-                            ax.text(ax.get_xlim()[0], positions[i] + 0.3, method, 
-                                    va='bottom', ha='left', fontweight='bold')
-                        else:  # below
-                            ax.text(ax.get_xlim()[0], positions[i] - 0.3, method, 
-                                    va='top', ha='left', fontweight='bold')
-            else:
-                # Remove y-ticks if not showing method names
-                ax.set_yticks([])
-            
-            # Add true value if provided
-            if true_theta is not None:
-                if isinstance(true_theta, (int, float, np.number)):
-                    # Single scalar value
-                    ax.axvline(x=true_theta, color='black', linestyle='--', linewidth=2, 
-                            label='True value')
-                    ax.legend(loc='upper right')
-                elif isinstance(true_theta, np.ndarray) and true_theta.ndim == 1:
-                    # Vector of true values - add all as vertical lines
-                    for i, val in enumerate(true_theta):
-                        ax.axvline(x=val, color='black', linestyle='--', linewidth=2, 
-                                label='True value' if i == 0 else "")
-                    ax.legend(loc='upper right')
+    for idx, ax in enumerate(axes):
+        # Prepare data for boxplot
+        method_names = list(theta_samples.keys())
+        eigval_i_samples = {
+            method: np.real(np.linalg.eigvals(theta_samples[method])[:, idx])
+            for method in theta_samples.keys()
+        }
+        samples_list = [eigval_i_samples[method] for method in method_names]
+        positions = np.arange(n_methods, 0, -1)  # Positions for boxplots
 
-            # Add observed estimate if provided
-            if theta_hat_obs is not None:
-                if isinstance(theta_hat_obs, (int, float, np.number)):
-                    # Single scalar value
-                    ax.axvline(x=theta_hat_obs, color='red', linestyle=':', linewidth=1, 
-                            label='Observed estimate')
-                    ax.legend(loc='upper left')
-                elif isinstance(theta_hat_obs, np.ndarray) and theta_hat_obs.ndim == 1:
-                    # Vector of observed estimates - add all as vertical lines
-                    for i, val in enumerate(theta_hat_obs):
-                        ax.axvline(x=val, color='red', linestyle=':', linewidth=1, 
-                                label='Observed estimate' if i == 0 else "")
-                    ax.legend(loc='upper left')    
+        # Create boxplots
+        boxplots = ax.boxplot(
+            samples_list, 
+            vert=False, 
+            patch_artist=True,
+            positions=positions,
+            widths=0.6,
+            whis=whisker_width,
+            showfliers=showfliers,
+        )
+
+        # remove ticks to put custom ones
+        ax.set_yticks([])
+    
+        # Set add transparency
+        for box in boxplots['boxes']:
+            box.set(alpha=0.6)
+        
+        # Add true value if provided
+        if true_theta is not None:
+            true_eigval_i = np.linalg.eigvals(true_theta)[idx]
+            ax.axvline(x=true_eigval_i, color='black', linestyle='--', linewidth=2, 
+                label='True value')
+
+        # Add observed estimate if provided
+        if theta_hat_obs is not None:
+            obs_eigval_i = np.linalg.eigvals(theta_hat_obs)[idx]
+            ax.axvline(x=obs_eigval_i, color='red', linestyle=':', linewidth=1.5, 
+                label='Obs. value')
+    
+        # Remove top and right spines
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        
+        # Add grid lines
+        ax.grid(axis='x', linestyle='--', alpha=0.7)
     
     plt.tight_layout()
+    # add ticks with method names
+    axes[0].set_yticks(positions)
+    axes[0].set_yticklabels(method_names)
     
-    return fig, axs
+    return fig, axes
+
+
 
 
 ##########################################################
@@ -354,7 +284,7 @@ def plot_posterior_distributions(
     # Find common x-axis limits if x_range not specified
     if x_range is None:
         all_samples = np.concatenate(list(theta_samples.values()))
-        x_min, x_max = np.min(all_samples), np.max(all_samples)
+        x_min, x_max = np.nanmin(all_samples), np.nanmax(all_samples)
         x_range = x_max - x_min
         x_min -= x_range * 0.1  # Add 10% padding
         x_max += x_range * 0.1
@@ -502,110 +432,110 @@ def plot_var1_posteriors(
             plt.show()
 
 
-# Frequentist view of VAR(1) Posterior Plotting Function
-def plot_predictive_resampling_results(y_obs: np.ndarray, results: Dict, true_A: np.ndarray = None, 
-                                      true_Sigma: np.ndarray = None, alpha: float = 0.1):
-    """
-    Plot the results of predictive resampling
+# # Frequentist view of VAR(1) Posterior Plotting Function
+# def plot_predictive_resampling_results(y_obs: np.ndarray, results: Dict, true_A: np.ndarray = None, 
+#                                       true_Sigma: np.ndarray = None, alpha: float = 0.1):
+#     """
+#     Plot the results of predictive resampling
     
-    Parameters:
-    -----------
-    y_obs : np.ndarray, shape (m, 2)
-        Observed time series
-    results : Dict
-        Results dictionary from predictive_resampling function
-    true_A : np.ndarray, optional
-        True A matrix if known (for comparison)
-    true_Sigma : np.ndarray, optional
-        True Sigma matrix if known (for comparison)
-    alpha : float
-        Transparency of forecast paths
-    """
-    m = len(y_obs)
-    n_future = results['forecasts'].shape[1]
-    n_bootstrap = results['forecasts'].shape[0]
-    total_time = m + n_future
+#     Parameters:
+#     -----------
+#     y_obs : np.ndarray, shape (m, 2)
+#         Observed time series
+#     results : Dict
+#         Results dictionary from predictive_resampling function
+#     true_A : np.ndarray, optional
+#         True A matrix if known (for comparison)
+#     true_Sigma : np.ndarray, optional
+#         True Sigma matrix if known (for comparison)
+#     alpha : float
+#         Transparency of forecast paths
+#     """
+#     m = len(y_obs)
+#     n_future = results['forecasts'].shape[1]
+#     n_bootstrap = results['forecasts'].shape[0]
+#     total_time = m + n_future
     
-    # Create time indices
-    time_obs = np.arange(m)
-    time_future = np.arange(m, total_time)
+#     # Create time indices
+#     time_obs = np.arange(m)
+#     time_future = np.arange(m, total_time)
     
-    # 1. Plot time series and forecasts
-    plt.figure(figsize=(15, 10))
+#     # 1. Plot time series and forecasts
+#     plt.figure(figsize=(15, 10))
     
-    # Plot for first variable
-    plt.subplot(2, 2, 1)
-    plt.plot(time_obs, y_obs[:, 0], 'b-', label='Observed')
+#     # Plot for first variable
+#     plt.subplot(2, 2, 1)
+#     plt.plot(time_obs, y_obs[:, 0], 'b-', label='Observed')
     
-    for b in range(n_bootstrap):
-        if b == 0:
-            plt.plot(time_future, results['forecasts'][b, :, 0], 'r-', alpha=alpha, label='Forecasts')
-        else:
-            plt.plot(time_future, results['forecasts'][b, :, 0], 'r-', alpha=alpha)
+#     for b in range(n_bootstrap):
+#         if b == 0:
+#             plt.plot(time_future, results['forecasts'][b, :, 0], 'r-', alpha=alpha, label='Forecasts')
+#         else:
+#             plt.plot(time_future, results['forecasts'][b, :, 0], 'r-', alpha=alpha)
     
-    plt.axvline(x=m-1, color='k', linestyle='--')
-    plt.title('Variable 1: Observed and Forecasted Values')
-    plt.legend()
+#     plt.axvline(x=m-1, color='k', linestyle='--')
+#     plt.title('Variable 1: Observed and Forecasted Values')
+#     plt.legend()
     
-    # Plot for second variable
-    plt.subplot(2, 2, 2)
-    plt.plot(time_obs, y_obs[:, 1], 'b-', label='Observed')
+#     # Plot for second variable
+#     plt.subplot(2, 2, 2)
+#     plt.plot(time_obs, y_obs[:, 1], 'b-', label='Observed')
     
-    for b in range(n_bootstrap):
-        if b == 0:
-            plt.plot(time_future, results['forecasts'][b, :, 1], 'r-', alpha=alpha, label='Forecasts')
-        else:
-            plt.plot(time_future, results['forecasts'][b, :, 1], 'r-', alpha=alpha)
+#     for b in range(n_bootstrap):
+#         if b == 0:
+#             plt.plot(time_future, results['forecasts'][b, :, 1], 'r-', alpha=alpha, label='Forecasts')
+#         else:
+#             plt.plot(time_future, results['forecasts'][b, :, 1], 'r-', alpha=alpha)
     
-    plt.axvline(x=m-1, color='k', linestyle='--')
-    plt.title('Variable 2: Observed and Forecasted Values')
-    plt.legend()
+#     plt.axvline(x=m-1, color='k', linestyle='--')
+#     plt.title('Variable 2: Observed and Forecasted Values')
+#     plt.legend()
     
-    # 2. Plot distribution of A parameters
-    plt.subplot(2, 2, 3)
-    A_params = [results['A_samples'][:, 0, 0], results['A_samples'][:, 0, 1],
-                results['A_samples'][:, 1, 0], results['A_samples'][:, 1, 1]]
-    labels = ['a11', 'a12', 'a21', 'a22']
+#     # 2. Plot distribution of A parameters
+#     plt.subplot(2, 2, 3)
+#     A_params = [results['A_samples'][:, 0, 0], results['A_samples'][:, 0, 1],
+#                 results['A_samples'][:, 1, 0], results['A_samples'][:, 1, 1]]
+#     labels = ['a11', 'a12', 'a21', 'a22']
     
-    plt.boxplot(A_params, labels=labels)
+#     plt.boxplot(A_params, labels=labels)
     
-    if true_A is not None:
-        true_values = [true_A[0, 0], true_A[0, 1], true_A[1, 0], true_A[1, 1]]
-        plt.plot(range(1, 5), true_values, 'ro', label='True Values')
-        plt.legend()
+#     if true_A is not None:
+#         true_values = [true_A[0, 0], true_A[0, 1], true_A[1, 0], true_A[1, 1]]
+#         plt.plot(range(1, 5), true_values, 'ro', label='True Values')
+#         plt.legend()
     
-    plt.title('Distribution of A Parameters')
+#     plt.title('Distribution of A Parameters')
     
-    # 3. Plot distribution of Sigma parameters
-    plt.subplot(2, 2, 4)
-    Sigma_params = [results['Sigma_samples'][:, 0, 0], results['Sigma_samples'][:, 0, 1],
-                    results['Sigma_samples'][:, 1, 0], results['Sigma_samples'][:, 1, 1]]
-    labels = ['σ11', 'σ12', 'σ21', 'σ22']
+#     # 3. Plot distribution of Sigma parameters
+#     plt.subplot(2, 2, 4)
+#     Sigma_params = [results['Sigma_samples'][:, 0, 0], results['Sigma_samples'][:, 0, 1],
+#                     results['Sigma_samples'][:, 1, 0], results['Sigma_samples'][:, 1, 1]]
+#     labels = ['σ11', 'σ12', 'σ21', 'σ22']
     
-    plt.boxplot(Sigma_params, labels=labels)
+#     plt.boxplot(Sigma_params, labels=labels)
     
-    if true_Sigma is not None:
-        true_values = [true_Sigma[0, 0], true_Sigma[0, 1], true_Sigma[1, 0], true_Sigma[1, 1]]
-        plt.plot(range(1, 5), true_values, 'ro', label='True Values')
-        plt.legend()
+#     if true_Sigma is not None:
+#         true_values = [true_Sigma[0, 0], true_Sigma[0, 1], true_Sigma[1, 0], true_Sigma[1, 1]]
+#         plt.plot(range(1, 5), true_values, 'ro', label='True Values')
+#         plt.legend()
     
-    plt.title('Distribution of Sigma Parameters')
+#     plt.title('Distribution of Sigma Parameters')
     
-    plt.tight_layout()
-    plt.show()
+#     plt.tight_layout()
+#     plt.show()
     
-    # Print summary statistics
-    print("A Matrix Summary:")
-    print("Mean:", results['A_mean'])
-    print("95% Confidence Intervals:")
-    for i in range(2):
-        for j in range(2):
-            print(f"A[{i},{j}]: ({results['A_quantiles'][i,j,0]:.4f}, {results['A_quantiles'][i,j,1]:.4f})")
+#     # Print summary statistics
+#     print("A Matrix Summary:")
+#     print("Mean:", results['A_mean'])
+#     print("95% Confidence Intervals:")
+#     for i in range(2):
+#         for j in range(2):
+#             print(f"A[{i},{j}]: ({results['A_quantiles'][i,j,0]:.4f}, {results['A_quantiles'][i,j,1]:.4f})")
     
-    print("\nSigma Matrix Summary:")
-    print("Mean:", results['Sigma_mean'])
-    print("95% Confidence Intervals:")
-    for i in range(2):
-        for j in range(2):
-            print(f"Sigma[{i},{j}]: ({results['Sigma_quantiles'][i,j,0]:.4f}, {results['Sigma_quantiles'][i,j,1]:.4f})")
-    return
+#     print("\nSigma Matrix Summary:")
+#     print("Mean:", results['Sigma_mean'])
+#     print("95% Confidence Intervals:")
+#     for i in range(2):
+#         for j in range(2):
+#             print(f"Sigma[{i},{j}]: ({results['Sigma_quantiles'][i,j,0]:.4f}, {results['Sigma_quantiles'][i,j,1]:.4f})")
+#     return

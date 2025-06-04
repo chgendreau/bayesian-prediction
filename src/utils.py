@@ -42,7 +42,15 @@ def load_inference_results(experiment_name: str) -> Tuple[Dict[str, Any], Dict[s
     for theta_name in results:
         for method_name in results[theta_name]:
             samples = results[theta_name][method_name]
-            
+
+            # randomly filter samples if 'B' is specified in config
+            if 'B' in config and isinstance(samples, list):
+                B = config['B']
+                if isinstance(samples, list) and len(samples) > B:
+                    samples = np.random.choice(samples, size=B, replace=False).tolist()
+                else:
+                    samples = samples[:B]
+      
             # Check if samples are a list of lists (matrix) or list of list of lists (3D)
             if isinstance(samples, list):
                 if all(isinstance(x, list) for x in samples):
@@ -59,10 +67,31 @@ def load_inference_results(experiment_name: str) -> Tuple[Dict[str, Any], Dict[s
     return results, config, X_obs
 
 
+def get_theta_samples_errors(theta_samples, true_theta):
+    """Get normalized error of theta_samples using frobenius norm
+    Args:
+        theta_samples (dict): Dictionary of theta samples
+        true_theta (np.ndarray): True theta value
+    Returns:
+        dict: Dictionary of normalized errors for each method
+    """
+    errors = {}
+    for method, samples in theta_samples.items():
+        if samples.ndim == 1:  # theta is scalar
+            errors[method] = np.abs(samples - true_theta) / np.abs(true_theta) if true_theta != 0 else np.abs(samples - true_theta)
+        elif samples.ndim == 2:  # theta is vector
+            errors[method] = np.linalg.norm(samples - true_theta, ord='fro', axis=1) / np.linalg.norm(true_theta, ord='fro')
+        elif samples.ndim == 3:  # theta is matrix
+            errors[method] = np.linalg.norm(samples - true_theta, ord='fro', axis=(1, 2)) / np.linalg.norm(true_theta, ord='fro', axis=(0,1))
+        else:
+            raise ValueError(f"Unsupported dimension for method {method}: {samples.ndim}")
+    return errors
+
+
 # Helper functions for var1_2d_pr
 def var1_s_statistics_2d(x_obs: np.ndarray) -> Tuple[float, float, float]:
     """
-    Compute the S:
+    Compute the matrix S (S = S^T):
     S_{n-1}^{(1)} = sum(y_i^{(1)}^2), S_{n-1}^{(2)} = sum(y_i^{(2)}^2), 
     S_{n-1}^{(1,2)} = sum(y_i^{(1)}*y_i^{(2)})
     """
@@ -147,7 +176,7 @@ def var1_estimate_2d_sequential(
     delta = np.linalg.det(S_new)
     # adjugate of a 2×2
     adj = np.array([[S_new[1, 1], -S_new[0, 1]],
-                    [-S_new[1, 0],  S_new[0, 0]]])
+                    [-S_new[1, 0], S_new[0, 0]]])
     # inverse
     S_inv = adj / delta
     # matrix increment
