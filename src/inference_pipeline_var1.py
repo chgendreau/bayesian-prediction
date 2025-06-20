@@ -1,6 +1,7 @@
 # main pipeline for inferences
 import json
 import argparse
+import random
 import numpy as np
 from pathlib import Path
 
@@ -18,12 +19,14 @@ def inference_pipeline_VAR1(experiment_name: str, experiment_config: dict):
     """
     Pipeline for 1D inferences.
     """
+    random_seed = experiment_config.get('random_seed', None)
     # Generates data using src.generating_data.generate_exchangeable_data
     X_all = generate_var1_data(
         A=experiment_config['A'],
         Sigma_eps=experiment_config['Sigma_eps'],
         n_samples=experiment_config.get('N', 2000),
         X0=experiment_config.get('X0', None),
+        random_seed=random_seed,
     )
     n_obs = experiment_config['n_obs']
     X_obs = X_all[:n_obs]
@@ -47,6 +50,7 @@ def inference_pipeline_VAR1(experiment_name: str, experiment_config: dict):
             method=method_name,
             theta_hat_func_dict=theta_funcs,
             B=experiment_config.get('B', 1000),
+            random_seed=random_seed,
         )
 
         # Update the theta_samples_dict
@@ -140,15 +144,21 @@ def main():
     # Determine which experiments to run
     experiments_to_run = args.experiments if args.experiments else CONFIG_VAR1.keys()
 
-    for experiment_name in experiments_to_run:
-        if experiment_name not in CONFIG_VAR1:
-            print(f"Warning: Experiment '{experiment_name}' not found in config, skipping.")
-            continue
+    random_seeds =[111, 222, 333]  # 444, 555, 321, 234, 432, 795] [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # [111, 222, 333, 444, 555, 321, 234, 432, 795]
+    for random_seed in random_seeds:
+        for experiment_name in experiments_to_run:
+            if experiment_name not in CONFIG_VAR1:
+                print(f"Warning: Experiment '{experiment_name}' not found in config, skipping.")
+                continue
+            exp_config = CONFIG_VAR1[experiment_name].copy()
+            exp_config['random_seed'] = random_seed
 
-        print(f"Running inference pipeline for {experiment_name}...")
-        inference_pipeline_VAR1(experiment_name, CONFIG_VAR1[experiment_name])
-        print(f"Inference pipeline for {experiment_name} completed.")
+            experiment_name = f"{experiment_name}, seed={random_seed}"
+            print(f"Running inference pipeline for {experiment_name}...")
+            inference_pipeline_VAR1(experiment_name, exp_config)
+            print(f"Inference pipeline for {experiment_name} completed.")
     print()
+
 
 if __name__ == "__main__":
     main()

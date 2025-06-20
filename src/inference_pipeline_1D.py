@@ -2,28 +2,32 @@
 import json
 import argparse
 import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
-
 from src.config import CONFIG
 from src.parameters import THETA_HAT_FUNC_DICT
 from src.generating_data import generate_exchangeable_data
 from src.infering import (
     predictive_resampling_posterior,
     likelihood_prior_posterior,
+    RESAMPLING_MAP,
+    empirical_t_res,
 )
-from src.plotting import plot_posterior_distributions
 
 
 def inference_pipeline1D(experiment_name: str, experiment_config: dict):
     """
     Pipeline for 1D inferences.
     """
+    # Setting random seed for reproducibility
+    random_seed = experiment_config.get('random_seed', None)
+    print(f"Running Pileline for {experiment_name} with random seed: '{random_seed}'")
+
     # Generates data using src.generating_data.generate_exchangeable_data
     X_all = generate_exchangeable_data(
         dist_name=experiment_config['dist_name'],
         dist_params=experiment_config['dist_params'],
-        n_samples=experiment_config.get('N', 2000)
+        n_samples=experiment_config['N'],
+        random_seed=random_seed,
     )
     X_all = X_all.flatten()  # Ensure X_all is 1D
     n_obs = experiment_config['n_obs']
@@ -47,8 +51,9 @@ def inference_pipeline1D(experiment_name: str, experiment_config: dict):
             N=experiment_config.get('N', n_obs),
             method=method_name,
             theta_hat_func_dict=theta_funcs,
-            B=experiment_config.get('B', 1000),
-            df=experiment_config['dist_params'].get('df', None) if method_name == "empirical_t" else None
+            B=experiment_config['B'],
+            df=experiment_config['dist_params'].get('nu', None) if RESAMPLING_MAP[method_name] == empirical_t_res else None,
+            random_seed=random_seed,
         )
 
         # Update the theta_samples_dict
@@ -56,7 +61,7 @@ def inference_pipeline1D(experiment_name: str, experiment_config: dict):
             if theta_name not in theta_samples_dict:
                 theta_samples_dict[theta_name] = {}
 
-            method_full_name = f"resampling_{method_name}"
+            method_full_name = f"PR\n{method_name}"
             theta_samples_dict[theta_name][method_full_name] = np.array(samples)
 
     # Process classic Bayesian methods
@@ -68,10 +73,10 @@ def inference_pipeline1D(experiment_name: str, experiment_config: dict):
             X=X_obs,
             likelihood_prior_config=method_config,
             theta_hat_func_dict=theta_funcs,
-            N=experiment_config.get('N', 5000),
+            N=experiment_config['N'],
             n_samples=method_config.get('n_samples', 1000),
             n_tune=method_config.get('n_tune', 1000),
-            random_seed=method_config.get('random_seed', 42)
+            random_seed=random_seed,
         )
 
         # Update the theta_samples_dict
@@ -79,7 +84,7 @@ def inference_pipeline1D(experiment_name: str, experiment_config: dict):
             if theta_name not in theta_samples_dict:
                 theta_samples_dict[theta_name] = {}
 
-            method_full_name = f"bayesian_{method_name}"
+            method_full_name = f"LP\n{method_name}"
             theta_samples_dict[theta_name][method_full_name] = np.array(samples)
 
     ##############################################################
@@ -108,37 +113,6 @@ def inference_pipeline1D(experiment_name: str, experiment_config: dict):
 
     np.save(output_dir / "X_obs.npy", X_obs)
 
-    # Compute true parameter values for comparison
-    # true_theta_values = {}
-    # for theta_name, theta_func in theta_funcs.items():
-    #     true_theta_values[theta_name] = theta_func(X_all)
-
-    # ############################################################
-    # # Plotting
-    # ############################################################
-    # # Plot the results for each theta
-    # for theta_name, method_samples in theta_samples_dict.items():
-    #     # Create a clean dictionary for plotting - exactly matching the expected format
-    #     plot_data = {method_name: samples for method_name, samples in method_samples.items()}
-        
-    #     # Create the plot
-    #     fig = plot_posterior_distributions(
-    #         plot_data,  # This is now a dict with {method_name: samples_array}
-    #         true_theta=true_theta_values.get(theta_name),
-    #         plot_type='both',
-    #         bins=100,
-    #         figsize=(10, 6),
-    #         title=f"Posterior Distribution of {theta_name} - {experiment_name}",
-    #         xlabel=f"{theta_name} estimates",
-    #         ylabel="Density",
-    #         show_legend=True,
-    #         alpha=0.3
-    #     )
-        
-    #     # Save the plot
-    #     fig.savefig(img_dir / f"{theta_name}_posterior.png", dpi=300, bbox_inches='tight')
-    #     plt.close(fig)
-
 
 def main():
     """
@@ -152,14 +126,21 @@ def main():
     # Determine which experiments to run
     experiments_to_run = args.experiments if args.experiments else CONFIG.keys()
 
-    for experiment_name in experiments_to_run:
-        if experiment_name not in CONFIG:
-            print(f"Warning: Experiment '{experiment_name}' not found in config, skipping.")
-            continue
-   
-        print(f"Running inference pipeline for {experiment_name}...")
-        inference_pipeline1D(experiment_name, CONFIG[experiment_name])
-        print(f"Inference pipeline for {experiment_name} completed.")
+    random_seeds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # [111, 222, 333, 444, 555, 321, 234, 432, 795]
+    for random_seed in random_seeds:
+        for experiment_name in experiments_to_run:
+            if experiment_name not in CONFIG:
+                print(f"Warning: Experiment '{experiment_name}' not found in config, skipping.")
+                continue
+            # Getting config for the current experiment
+            exp_config = CONFIG[experiment_name].copy()
+            exp_config['random_seed'] = random_seed
+
+            experiment_name = f"{experiment_name}, seed={random_seed}"
+
+            print(f"###############\nRunning inference pipeline for {experiment_name}...\n")
+            inference_pipeline1D(experiment_name, exp_config)
+            print(f"###############\nInference pipeline for {experiment_name} completed.\n")
 
 
 if __name__ == "__main__":

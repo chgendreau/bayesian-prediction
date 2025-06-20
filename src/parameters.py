@@ -3,6 +3,7 @@ import numpy as np
 from scipy import stats
 from src.utils import var1_s_statistics_2d, var1_h_statistics_2d
 from tqdm import tqdm
+from scipy.integrate import quad
 
 THETA_HAT_FUNC_DICT = {
     'mean': lambda x: np.mean(x),
@@ -44,6 +45,25 @@ TRUE_THETA_FUNC_T_DICT = {
     'VaR_99': lambda nu, mu, sigma: mu + stats.t.ppf(0.01, nu) * sigma,
     'CVaR_95': lambda nu, mu, sigma: _CVaR_t(0.05, nu, mu, sigma) if nu > 1 else np.nan,
     'CVaR_99': lambda nu, mu, sigma: _CVaR_t(0.01, nu, mu, sigma) if nu > 1 else np.nan,
+}
+
+TRUE_THETA_FUNC_SKEWNORMAL_DICT = {
+    'mean': lambda alpha, mu, sigma: mu + np.sqrt(2 / np.pi) * (sigma * alpha / np.sqrt(1 + alpha**2)),
+    'median': lambda alpha, mu, sigma: mu + np.sqrt(2 / np.pi) * (sigma * alpha / np.sqrt(1 + alpha**2)),  # same as mean
+    'std': lambda alpha, mu, sigma: sigma * np.sqrt(1 - (2*alpha**2 / ((1 + alpha**2)*np.pi))),
+    'variance': lambda alpha, mu, sigma: sigma**2 * (1 - (2*alpha**2 / ((1 + alpha**2)*np.pi))),
+    'skewness': lambda alpha, mu, sigma: ((4 - np.pi) * (alpha/np.sqrt(1 + alpha**2) * np.sqrt(2/np.pi))**3) / (2 * (1 - 2*(alpha/np.sqrt(1 + alpha**2))**2/np.pi)**(3/2)),
+    'kurtosis': lambda alpha, mu, sigma: (2 * (np.pi - 3) * (alpha/np.sqrt(1 + alpha**2) * np.sqrt(2/np.pi))**4) / ((1 - 2*(alpha/np.sqrt(1 + alpha**2))**2/np.pi)**2),  # excess kurtosis
+    'VaR_95': lambda alpha, mu, sigma: stats.skewnorm.ppf(1 - 0.95, alpha, loc=mu, scale=sigma),
+    'VaR_99': lambda alpha, mu, sigma: stats.skewnorm.ppf(1 - 0.99, alpha, loc=mu, scale=sigma),
+    'CVaR_95': lambda alpha, mu, sigma: quad(lambda x: x * stats.skewnorm.pdf(x, alpha, loc=mu, scale=sigma), -np.inf, stats.skewnorm.ppf(0.05, alpha, loc=mu, scale=sigma))[0] / (1 - 0.95),  # noqa
+    'CVaR_99': lambda alpha, mu, sigma: quad(lambda x: x * stats.skewnorm.pdf(x, alpha, loc=mu, scale=sigma), -np.inf, stats.skewnorm.ppf(0.01, alpha, loc=mu, scale=sigma))[0] / (1 - 0.99)  # noqa
+}
+
+TRUE_THETA_FUNC_DICT = {
+    'Normal': TRUE_THETA_FUNC_NORMAL_DICT,
+    'StudentT': TRUE_THETA_FUNC_T_DICT,
+    'SkewNormal': TRUE_THETA_FUNC_SKEWNORMAL_DICT,
 }
 
 
@@ -168,7 +188,7 @@ def compute_real_theta_from_config(experiment_config: dict) -> dict:
         dist_params = experiment_config.get('dist_params', {})
         mu = dist_params.get('mu', 0)
         sigma = dist_params.get('sigma', 1)
-        return {theta_name: func(mu, sigma) for theta_name, func in TRUE_THETA_FUNC_NORMAL_DICT.items()}
+        return {theta_name: func(mu, sigma) for theta_name, func in TRUE_THETA_FUNC_DICT['Normal'].items()}
     elif experiment_config['dist_name'] == 'StudentT':
         dist_params = experiment_config.get('dist_params', {})
         nu = dist_params.get('nu', None)
@@ -176,7 +196,13 @@ def compute_real_theta_from_config(experiment_config: dict) -> dict:
         sigma = dist_params.get('sigma', 1)
         if nu is None:
             raise ValueError("The 'nu' parameter must be provided for StudentT distribution.")
-        return {theta_name: func(nu, mu, sigma) for theta_name, func in TRUE_THETA_FUNC_T_DICT.items()}
+        return {theta_name: func(nu, mu, sigma) for theta_name, func in TRUE_THETA_FUNC_DICT['StudentT'].items()}
+    elif experiment_config['dist_name'] == 'SkewNormal':
+        dist_params = experiment_config.get('dist_params', {})
+        alpha = dist_params.get('alpha', None)
+        mu = dist_params.get('mu', None)
+        sigma = dist_params.get('sigma', None)
+        return {theta_name: func(alpha, mu, sigma) for theta_name, func in TRUE_THETA_FUNC_DICT['SkewNormal'].items()}
     else:
         print(f"WARNING: Distribution {experiment_config['dist_name']} is not supported for real theta computation.")
         return {}

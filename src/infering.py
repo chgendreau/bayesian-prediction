@@ -1,4 +1,8 @@
 # flake8: noqa
+from logging import warning
+from pickle import TRUE
+from re import U
+import warnings
 from src.resampling import (
     empirical_res,
     empirical_normal_res,
@@ -11,11 +15,12 @@ import numpy as np
 import pymc as pm
 from typing import Dict, Optional, Callable, List, Any
 from scipy.stats import skew, kurtosis
+from src.parameters import TRUE_THETA_FUNC_DICT
 
 RESAMPLING_MAP = {
-    "empirical": empirical_res,
-    "empirical_normal": empirical_normal_res,
-    "empirical_t": empirical_t_res,
+    "Empirical": empirical_res,
+    "Normal": empirical_normal_res,
+    "Student-T": empirical_t_res,
     "var1_2d": var1_2d_res,
 }
 
@@ -23,10 +28,11 @@ RESAMPLING_MAP = {
 def predictive_resampling_posterior(
     X_obs: np.ndarray,
     N: int,
-    method: Literal["empirical", "empirical_normal", "empirical_t", "var1_2d"],
+    method: Literal["Empirical", "Normal", "Student-T", "var1_2d"],
     theta_hat_func_dict: dict,
-    B: int = 100,
+    B: int = 1000,
     df: int | float = None,
+    random_seed: int | None = None,
 ) -> dict:
     """Resample the data using the specified method to compute posterior of theta.
 
@@ -39,16 +45,18 @@ def predictive_resampling_posterior(
             values should be the functions to estimate them.
         B (int): Number of bootstrap samples (default is 100).
         df (int or float): Degrees of freedom. Only used for method="empirical_t".
+        random_seed (int or None): Random seed for reproducibility.
 
     Returns:
         dict: Dictionnary with key quantities computed and values array with sample distribution.
     """
+    # Get resampling function based on method
     if method not in RESAMPLING_MAP:
         raise ValueError(f"Method {method} is not supported.")
-
     resampling_function = RESAMPLING_MAP[method]
+
+    # Initialize
     theta_hat_vals_dict = {key: [] for key in theta_hat_func_dict.keys()}
-    # Resampling parameters
     resamp_params = {"X_obs": X_obs, "N": N}
 
     # appending new param for empirical_t
@@ -57,13 +65,16 @@ def predictive_resampling_posterior(
 
     # Iterate over B bootstrap samples
     for l in tqdm(range(B), desc="Bootstrapping"):
+        if random_seed is not None:
+            # update resamp_params
+            resamp_params["random_seed"] = random_seed + l  # Ensure different seed for each iteration
         try:
             # Resample the data
             X_resampled = resampling_function(**resamp_params)  
             # Estimate the parameter
             for key, theta_hat_func in theta_hat_func_dict.items():
                 theta_hat_vals_dict[key].append(theta_hat_func(X_resampled))
-        except Exception as e:
+        except Exception as e:  # Exception might happen because of rare events
             print("Warning: resampling failed for iteration", l)
             print(f"Error: {e}")
             continue
@@ -161,7 +172,7 @@ def likelihood_prior_posterior(
             # Check if this is a fixed value
             elif isinstance(val, (float, int)):
                 # This is a fixed value
-                params_fixed[param_name] = val
+                params_fixed[param_name] = pm.Deterministic(param_name, pm.math.constant(val))
                 
             else:
                 raise ValueError(f"Unsupported prior specification: {val}")
@@ -197,6 +208,7 @@ def likelihood_prior_posterior(
         # Sampling
         trace = pm.sample(
             n_samples,
+            chains=4,
             tune=n_tune,
             random_seed=random_seed,
             return_inferencedata=False
@@ -206,30 +218,62 @@ def likelihood_prior_posterior(
         ppc = pm.sample_posterior_predictive(
             trace,
             var_names=['X_pred'],  # same as likelihood but with different sizes
+            random_seed=random_seed,
         )
-        
 
     # Extract inferred parameters samples
     theta_hat_vals_dict = {}
     for param_name in params_with_prior.keys():
         theta_hat_vals_dict[param_name] = trace.get_values(param_name)
     
-    # Get predictive samples
-    pred_samples = ppc.posterior_predictive['X_pred'].values
-    
-    # Reshape if needed (from 3D to 2D)
-    if len(pred_samples.shape) == 3:
-        pred_samples = pred_samples.reshape(-1, pred_samples.shape[-1])
+    # # Compute statistics samples using model parameters (if real function defined)
+    # ATTN: If we want a fully Bayesian predictive approach, we should compute the statistics!!!
 
-    # Compute derived statistics from predictive samples
-    for key, theta_hat_func in theta_hat_func_dict.items():
-        if key not in theta_hat_vals_dict:
-            # Apply the function to each predictive dataset
-            theta_hat_vals_dict[key] = np.apply_along_axis(
-                theta_hat_func,
-                axis=1,  # Apply along the observations dimension
-                arr=pred_samples
-            )
+
+    # # cases depending on the exact distribution
+    # if likelihood_prior_config['likelihood_model'] == 'Normal':
+    #     for key in theta_hat_func_dict.keys():
+    #         if key not in theta_hat_vals_dict:  # check if not already here
+    #             # Apply TRUE_THETA_FUNC_DICT to get the real value with all samples
+    #             theta_func = TRUE_THETA_FUNC_DICT['Normal'][key]
+    #             theta_hat_vals_dict[key] = [theta_func(mu, sigma) for mu, sigma in zip(trace.get_values('mu'), trace.get_values('sigma'))]
+    # elif likelihood_prior_config['likelihood_model'] == 'StudentT':
+    #     for key in theta_hat_func_dict.keys():
+    #         if key not in theta_hat_vals_dict:
+    #             # Apply TRUE_THETA_FUNC_DICT to get the real value with all samples
+    #             theta_func = TRUE_THETA_FUNC_DICT['StudentT'][key]
+    #             theta_hat_vals_dict[key] = [theta_func(nu, mu, sigma) for nu, mu, sigma in zip(
+    #                 trace.get_values('nu'), trace.get_values('mu'), trace.get_values('sigma')
+    #             )]
+    # elif likelihood_prior_config['likelihood_model'] == 'SkewNormal':
+    #     for key in theta_hat_func_dict.keys():
+    #         if key not in theta_hat_vals_dict:
+    #             # Apply TRUE_THETA_FUNC_DICT to get the real value with all samples
+    #             theta_func = TRUE_THETA_FUNC_DICT['SkewNormal'][key]
+    #             theta_hat_vals_dict[key] = [theta_func(alpha, mu, sigma) for alpha, mu, sigma in zip(
+    #                 trace.get_values('alpha'), trace.get_values('mu'), trace.get_values('sigma')
+    #             )]
+    else:
+        # Else, Samples N from P(X_{n+1} | X_{1:n}) = \int P(X_{n+1} | X_{1:n}, \theta) P(\theta | X_{1:n}) d\theta and compute empirical estimate
+        # raise warning
+        # warnings.warn(f"{'#'*10}\nLikelihood model {likelihood_prior_config['likelihood_model']} is not supported for theta_hat computation. \
+        #               Using {N} posterior predictive samples to estimate statistics.\n{'#'*10}", UserWarning)
+        # Get predictive samples
+        pred_samples = ppc.posterior_predictive['X_pred'].values
+        
+        # Reshape if needed (from 3D to 2D)
+        if len(pred_samples.shape) == 3:
+            pred_samples = pred_samples.reshape(-1, pred_samples.shape[-1])
+
+        # Compute derived statistics from predictive samples
+        for key, theta_hat_func in theta_hat_func_dict.items():
+            if key not in theta_hat_vals_dict:
+                # Apply the function to each predictive dataset
+                theta_hat_vals_dict[key] = np.apply_along_axis(
+                    theta_hat_func,
+                    axis=1,  # Apply along the observations dimension
+                    arr=pred_samples
+                )
                 
     return theta_hat_vals_dict
 
@@ -566,6 +610,9 @@ def bvar_analytical_posterior(
     Returns:
         Dictionary of parameter posterior samples
     """
+    # Set RNG for reproducibility
+    rng = np.random.default_rng(random_seed)
+
     n, m = X.shape
     if m > n:
         raise ValueError("Number of dimensions (m) cannot exceed number of observations (n).")
@@ -629,7 +676,7 @@ def bvar_analytical_posterior(
     # Draw from the posterior
     for i in range(n_draws):
         # First draw from inverse Wishart
-        cov_i = stats.invwishart.rvs(df=posterior_df, scale=posterior_scale)
+        cov_i = stats.invwishart.rvs(df=posterior_df, scale=posterior_scale, random_state=rng)
         cov_samples[i] = cov_i
         
         # Then draw from matrix normal, which we implement as multivariate normal for each column
@@ -637,7 +684,7 @@ def bvar_analytical_posterior(
             # For each column of A, draw from multivariate normal
             mean_j = posterior_mean[:, j]
             cov_j = posterior_precision_inv * cov_i[j, j]  # Scale by the jth diagonal element of Sigma
-            coef_samples[i, :, j] = np.random.multivariate_normal(mean_j, cov_j)
+            coef_samples[i, :, j] = rng.multivariate_normal(mean_j, cov_j)
     
     # Store results
     # posterior_samples['coefficients'] = coef_samples

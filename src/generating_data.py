@@ -7,6 +7,7 @@ def generate_exchangeable_data(
         dist_name: str,
         dist_params: dict,
         n_samples: int,
+        random_seed: int | None = None
 ) -> np.ndarray:
     """
     Generate n_samples i.i.d. realizations from a specified PyMC distribution.
@@ -16,6 +17,7 @@ def generate_exchangeable_data(
         'Beta')
         dist_params: Dictionary of parameters for the distribution
         n_samples: Number of samples to generate
+        random_seed: Random seed
 
     Returns:
         NumPy array of samples with shape (n_samples,) or (n_samples, d) for 
@@ -33,7 +35,7 @@ def generate_exchangeable_data(
         # Create the distribution
         rand_var = dist_class('rand_var', **dist_params)  # noqa
         # Sample from the prior (no conditioning)
-        samples = pm.sample_prior_predictive(samples=n_samples)
+        samples = pm.sample_prior_predictive(samples=n_samples, random_seed=random_seed)
         # Extract the samples
         data = samples.prior['rand_var'].values
 
@@ -45,6 +47,7 @@ def generate_var1_data(
     Sigma_eps: np.ndarray,  # Error covariance matrix (m x m)
     n_samples: int,  # Number of samples to generate
     X0: np.ndarray = None,  # Initial value (default: zeros)
+    random_seed: int | None = None  # Optional random seed for reproducibility
 ) -> np.ndarray:
     """
     Generate data from a Vector Autoregressive model of order 1 (VAR(1)).
@@ -69,6 +72,7 @@ def generate_var1_data(
     numpy.ndarray
         Generated time series of shape (n_samples, m)
     """
+    rng = np.random.default_rng(random_seed)  # Use default_rng for reproducibility
     A = np.array(A)
     Sigma_eps = np.array(Sigma_eps)
     # Check dimensions
@@ -96,7 +100,7 @@ def generate_var1_data(
 
     # Generate multivariate normal errors
     # We generate n_samples-1 errors since we already have X0
-    errors = np.random.multivariate_normal(
+    errors = rng.multivariate_normal(
         mean=np.zeros(m),
         cov=Sigma_eps,
         size=n_samples-1

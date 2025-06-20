@@ -43,75 +43,75 @@
 
 
 CONFIG = {
-    "TestNormal (n=100)": {
-        "dist_name": "Normal",
-        "dist_params": {
-            "mu": 0,
-            "sigma": 1,
-        },
-        "n_obs": 100,
-        "N": 5000,
-        "B": 1000,
-        "resampling_methods": [
-            # "empirical",
-            "empirical_normal",
-            # "empirical_t",
-        ],
-        "classic_bayesian": {
-            "uninformative_prior": {
-                'likelihood_model': 'Normal',
-                'parameters': {
-                    'mu': 'Flat',  # Uninformative prior for mu
-                    'sigma': {
-                        'dist': 'HalfNormal',
-                        'args': {'sigma': 3.0}  # Uniform prior for sigma
-                    }
-                },
-                "n_samples": 5000,
-                "n_tune": 1000,
-                "random_seed": 42,
-            },
-            "normal_prior": {
-                'likelihood_model': 'Normal',
-                'parameters': {
-                    'mu': 'Normal',  # Uninformative prior for mu
-                    'sigma': {
-                        'dist': 'HalfNormal',
-                        'args': {'sigma': 3.0}  # Uniform prior for sigma
-                    }
-                },
-                "n_samples": 5000,
-                "n_tune": 1000,
-                "random_seed": 42,
-            },
-        #     "incorrect_likelihood": {
-        #         'likelihood_model': 'StudentT',
-        #         'parameters': {
-        #             'nu': 3,
-        #             'mu': 'Flat',  # Uninformative prior for mu
-        #             'sigma': {
-        #                 'dist': 'HalfNormal',
-        #                 'args': {'sigma': 3.0}  # Uniform prior for sigma
-        #             }
-        #         },
-        #         "n_samples": 5000,
-        #         "n_tune": 1000,
-        #         "random_seed": 42,
-        #     },
-        },
-        "thetas": [
-            'mean',
-            'median',
-            'std',
-            'variance',
-            'skewness',
-            'kurtosis',  # excess kurtosis
-            'VaR_95',
-            'CVaR_95',
-        ],
-    },
 
-    "Normal (n=100)": {
+    # "Normal, n=1000": {
+    #     "dist_name": "Normal",
+    #     "dist_params": {
+    #         "mu": 0,
+    #         "sigma": 1,
+    #     },
+    #     "n_obs": 1000,
+    #     "N": 5000,
+    #     "B": 1000,
+    #     "resampling_methods": [
+    #         "Empirical",
+    #         "Normal",
+    #     ],
+    #     "classic_bayesian": {
+    #         "Uninf. prior": {
+    #             'likelihood_model': 'Normal',
+    #             'parameters': {
+    #                 'mu': 'Flat',  # Uninformative prior for mu
+    #                 'sigma': {
+    #                     'dist': 'HalfNormal',
+    #                     'args': {'sigma': 100}  # Uniform prior for sigma
+    #                 }
+    #             },
+    #             "n_samples": 500,  # 2 chains, so B=1000 samples in total
+    #             "n_tune": 1000,
+    #         },
+    #         "Inform. prior": {
+    #             'likelihood_model': 'Normal',
+    #             'parameters': {
+    #                 'mu': 'Normal',  # informative prior for mu
+    #                 'sigma': {
+    #                     'dist': 'HalfNormal',
+    #                     'args': {'sigma': 3.0}  # Uniform prior for sigma
+    #                 }
+    #             },
+    #             "n_samples": 500,  # 2 chains, so B=1000 samples in total
+    #             "n_tune": 1000,
+    #         },
+    #         "Wrong Student-T L": {
+    #             'likelihood_model': 'StudentT',
+    #             'parameters': {
+    #                 'nu': {
+    #                     'dist': 'Gamma',
+    #                     'args': {'alpha': 2, 'beta': 0.1}  # Weakly informative prior for nu
+    #                 },
+    #                 'mu': 'Flat',  # Uninformative prior for mu
+    #                 'sigma': {
+    #                     'dist': 'HalfNormal',
+    #                     'args': {'sigma': 100}  # Uniform prior for sigma
+    #                 }
+    #             },
+    #             "n_samples": 500,
+    #             "n_tune": 1000,
+    #         },
+    #     },
+    #     "thetas": [
+    #         'mean',
+    #         'median',
+    #         'std',
+    #         'variance',
+    #         'skewness',
+    #         'kurtosis',  # excess kurtosis
+    #         'VaR_95',
+    #         'CVaR_95',
+    #     ],
+    # },
+
+    "Normal, n=100": {
         "dist_name": "Normal",
         "dist_params": {
             "mu": 0,
@@ -121,50 +121,49 @@ CONFIG = {
         "N": 5000,
         "B": 1000,
         "resampling_methods": [
-            "empirical",
-            "empirical_normal",
-            "empirical_t",
+            "Empirical",
+            "Normal",
         ],
         "classic_bayesian": {
-            "uninformative_prior": {
+            "Uninf. prior": {
                 'likelihood_model': 'Normal',
                 'parameters': {
                     'mu': 'Flat',  # Uninformative prior for mu
                     'sigma': {
                         'dist': 'HalfNormal',
-                        'args': {'sigma': 3.0}  # Uniform prior for sigma
+                        'args': {'sigma': 100}  # Uniform prior for sigma
                     }
                 },
-                "n_samples": 5000,
+                "n_samples": 500,  # 2 chains, so B=1000 samples in total
                 "n_tune": 1000,
-                "random_seed": 42,
             },
-            "normal_prior": {
+            "Inform. prior": {
                 'likelihood_model': 'Normal',
                 'parameters': {
-                    'mu': 'Normal',  # Uninformative prior for mu
+                    'mu': 'Normal',  # informative prior for mu
                     'sigma': {
                         'dist': 'HalfNormal',
                         'args': {'sigma': 3.0}  # Uniform prior for sigma
                     }
                 },
-                "n_samples": 5000,
+                "n_samples": 500,  # 2 chains, so B=1000 samples in total
                 "n_tune": 1000,
-                "random_seed": 42,
             },
-            "incorrect_likelihood": {
+            "Wrong Student-T L": {
                 'likelihood_model': 'StudentT',
                 'parameters': {
-                    'nu': 3,
+                    'nu': {
+                        'dist': 'Gamma',
+                        'args': {'alpha': 2, 'beta': 0.1}  # Weakly informative prior for nu
+                    },
                     'mu': 'Flat',  # Uninformative prior for mu
                     'sigma': {
                         'dist': 'HalfNormal',
-                        'args': {'sigma': 3.0}  # Uniform prior for sigma
+                        'args': {'sigma': 100}  # Uniform prior for sigma
                     }
                 },
-                "n_samples": 5000,
+                "n_samples": 500,
                 "n_tune": 1000,
-                "random_seed": 42,
             },
         },
         "thetas": [
@@ -179,10 +178,118 @@ CONFIG = {
         ],
     },
 
-    "Student-T (nu=5, n=100)": {
+    # "Student-T, nu=40, n=1000": {
+    #     "dist_name": "StudentT",
+    #     "dist_params": {
+    #         "nu": 40,
+    #         "mu": 0,
+    #         "sigma": 1,
+    #     },
+    #     "n_obs": 1000,
+    #     "N": 10000,
+    #     "B": 1000,
+    #     "resampling_methods": [
+    #         "Empirical",
+    #         "Normal",
+    #         "Student-T"
+    #     ],
+    #     "classic_bayesian": {
+    #         "Uninf. prior": {
+    #             'likelihood_model': 'StudentT',
+    #             'parameters': {
+    #                 'nu': 40,
+    #                 'mu': 'Flat',  # Uninformative prior for mu
+    #                 'sigma': {
+    #                     'dist': 'HalfNormal',
+    #                     'args': {'sigma': 100}  # Uniform prior for sigma
+    #                 }
+    #             },
+    #             "n_samples": 1000,  # 2 chains, so B=1000 samples in total
+    #             "n_tune": 1000,
+    #         },
+    #         "Wrong Normal L": {
+    #             'likelihood_model': 'Normal',
+    #             'parameters': {
+    #                 'mu': 'Flat',  # Uninformative prior for mu
+    #                 'sigma': {
+    #                     'dist': 'HalfNormal',
+    #                     'args': {'sigma': 100}  # Uniform prior for sigma
+    #                 }
+    #             },
+    #             "n_samples": 500,  # 2 chains, so B=1000 samples in total
+    #             "n_tune": 1000,
+    #         },
+    #     },
+    #     "thetas": [
+    #         'mean',
+    #         'median',
+    #         'std',
+    #         'variance',
+    #         'skewness',
+    #         'kurtosis',  # excess kurtosis
+    #         'VaR_95',
+    #         'CVaR_95',
+    #     ],
+    # },
+
+    # "Student-T, nu=10, n=1000": {
+    #     "dist_name": "StudentT",
+    #     "dist_params": {
+    #         "nu": 10,
+    #         "mu": 0,
+    #         "sigma": 1,
+    #     },
+    #     "n_obs": 1000,
+    #     "N": 5000,
+    #     "B": 1000,
+    #     "resampling_methods": [
+    #         "Empirical",
+    #         "Normal",
+    #         "Student-T"
+    #     ],
+    #     "classic_bayesian": {
+    #         "Uninf. prior": {
+    #             'likelihood_model': 'StudentT',
+    #             'parameters': {
+    #                 'nu': 10,
+    #                 'mu': 'Flat',  # Uninformative prior for mu
+    #                 'sigma': {
+    #                     'dist': 'HalfNormal',
+    #                     'args': {'sigma': 100}  # Uniform prior for sigma
+    #                 }
+    #             },
+    #             "n_samples": 1000,
+    #             "n_tune": 1000,
+    #         },
+    #         "Wrong Normal L": {
+    #             'likelihood_model': 'Normal',
+    #             'parameters': {
+    #                 'mu': 'Flat',  # Uninformative prior for mu
+    #                 'sigma': {
+    #                     'dist': 'HalfNormal',
+    #                     'args': {'sigma': 100}  # Uniform prior for sigma
+    #                 }
+    #             },
+    #             "n_samples": 500,  # 2 chains, so B=1000 samples in total
+    #             "n_tune": 1000,
+    #         },
+    #     },
+    #     "thetas": [
+    #         'mean',
+    #         'median',
+    #         'std',
+    #         'variance',
+    #         'skewness',
+    #         'kurtosis',  # excess kurtosis
+    #         'VaR_95',
+    #         'CVaR_95',
+    #     ],
+    # },
+
+    "Student-T, nu=10, n=100": {
         "dist_name": "StudentT",
         "dist_params": {
-            "nu": 5,
+            "nu": 10,
             "mu": 0,
             "sigma": 1,
         },
@@ -190,31 +297,35 @@ CONFIG = {
         "N": 5000,
         "B": 1000,
         "resampling_methods": [
-            "empirical",
-            "empirical_normal",
-            "empirical_t",
+            "Empirical",
+            "Normal",
+            "Student-T"
         ],
         "classic_bayesian": {
-            "incorrect_likelihood": {
-                'likelihood_model': 'Normal',
-                'parameters': {
-                    'mu': 'Flat',  # Uninformative prior for mu
-                    'sigma': {
-                        'dist': 'HalfNormal',
-                        'args': {'sigma': 3.0}  # Uniform prior for sigma
-                    }
-                }
-            },
-            "correct_likelihood": {
+            "Uninf. prior": {
                 'likelihood_model': 'StudentT',
                 'parameters': {
-                    'nu': 5,
+                    'nu': 10,
                     'mu': 'Flat',  # Uninformative prior for mu
                     'sigma': {
                         'dist': 'HalfNormal',
-                        'args': {'sigma': 3.0}  # Uniform prior for sigma
+                        'args': {'sigma': 100}  # Uniform prior for sigma
                     }
-                }
+                },
+                "n_samples": 1000,
+                "n_tune": 1000,
+            },
+            "Wrong Normal L": {
+                'likelihood_model': 'Normal',
+                'parameters': {
+                    'mu': 'Flat',  # Uninformative prior for mu
+                    'sigma': {
+                        'dist': 'HalfNormal',
+                        'args': {'sigma': 100}  # Uniform prior for sigma
+                    }
+                },
+                "n_samples": 500,  # 2 chains, so B=1000 samples in total
+                "n_tune": 1000,
             },
         },
         "thetas": [
@@ -229,101 +340,40 @@ CONFIG = {
         ],
     },
 
-    "SkewNormal (alpha=-3, n=100)": {
+    "SkewNormal, alpha=-2, n=100": {
         "dist_name": "SkewNormal",
         "dist_params": {
-            "alpha": -3,
+            "alpha": -2,
             "mu": 0,
             "sigma": 1,
         },
-        "n_obs": 100,
-        "N": 5000,
+        "n_obs": 1000,
+        "N": 10000,
         "B": 1000,
         "resampling_methods": [
-            "empirical",
-            "empirical_normal",
-            "empirical_t",
+            "Empirical",
+            "Normal",
+            # "Student-T"
         ],
         "classic_bayesian": {
-            "uninformative_prior": {
+            "Uninf. prior": {
                 "likelihood_model": "SkewNormal",
                 "parameters": {
                     "alpha": "Flat",  # Uninformative prior for alpha
                     "mu": "Flat",  # Uninformative prior for mu
                     "sigma": {
                         "dist": "HalfNormal",
-                        "args": {"sigma": 3.0}  # Uniform prior for sigma
+                        "args": {"sigma": 100}  # Uniform prior for sigma
                     }
                 }
             },
-            "incorrect_likelihood_Normal": {
+            "Wrong Normal L": {
                 'likelihood_model': 'Normal',
                 'parameters': {
                     'mu': 'Flat',  # Uninformative prior for mu
                     'sigma': {
                         'dist': 'HalfNormal',
-                        'args': {'sigma': 3.0}  # Uniform prior for sigma
-                    }
-                }
-            },
-            # "incorrect_likelihood_T": {
-            #     'likelihood_model': 'StudentT',
-            #     'parameters': {
-            #         'nu': 5,
-            #         'mu': 'Flat',  # Uninformative prior for mu
-            #         'sigma': {
-            #             'dist': 'HalfNormal',
-            #             'args': {'sigma': 3.0}  # Uniform prior for sigma
-            #         }
-            #     }
-            # },
-        },
-        "thetas": [
-            'mean',
-            'median',
-            'std',
-            'variance',
-            'skewness',
-            'kurtosis',  # excess kurtosis
-            'VaR_95',
-            'CVaR_95',
-        ],
-    },
-
-    "SkewNormal (alpha=3, n=100)": {
-        "dist_name": "SkewNormal",
-        "dist_params": {
-            "alpha": 3,
-            "mu": 0,
-            "sigma": 1,
-        },
-        "n_obs": 100,
-        "N": 5000,
-        "B": 1000,
-        "resampling_methods": [
-            "empirical",
-            "empirical_normal",
-            "empirical_t",
-        ],
-        "classic_bayesian": {
-            "uninformative_prior": {
-                "likelihood_model": "SkewNormal",
-                "parameters": {
-                    "alpha": "Flat",  # Uninformative prior for alpha
-                    "mu": "Flat",  # Uninformative prior for mu
-                    "sigma": {
-                        "dist": "HalfNormal",
-                        "args": {"sigma": 3.0}  # Uniform prior for sigma
-                    }
-                }
-            },
-            "incorrect_likelihood_Normal": {
-                'likelihood_model': 'Normal',
-                'parameters': {
-                    'mu': 'Flat',  # Uninformative prior for mu
-                    'sigma': {
-                        'dist': 'HalfNormal',
-                        'args': {'sigma': 3.0}  # Uniform prior for sigma
+                        'args': {'sigma': 100}  # Uniform prior for sigma
                     }
                 }
             },
@@ -343,7 +393,7 @@ CONFIG = {
 
 
 CONFIG_VAR1 = {
-    "VAR1 (n=100)": {
+    "testVAR1 (n=100)": {
         "A": [[0.7, 0.3], [0.1, 0.4]],  # Coefficient matrix (m x m)
         'p': 1,
         "Sigma_eps": [[0.4, 0.1], [0.1, 0.5]],  # Error covariance matrix (m x m)

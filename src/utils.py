@@ -47,7 +47,9 @@ def load_inference_results(experiment_name: str) -> Tuple[Dict[str, Any], Dict[s
             if 'B' in config and isinstance(samples, list):
                 B = config['B']
                 if isinstance(samples, list) and len(samples) > B:
-                    samples = np.random.choice(samples, size=B, replace=False).tolist()
+                    # Create a local RNG
+                    rng = np.random.default_rng(111)
+                    samples = rng.choice(samples, size=B, replace=False).tolist()
                 else:
                     samples = samples[:B]
       
