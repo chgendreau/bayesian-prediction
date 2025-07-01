@@ -393,7 +393,7 @@ CONFIG = {
 
 
 CONFIG_VAR1 = {
-    "testVAR1 (n=100)": {
+    "VAR1 (n=100)": {
         "A": [[0.7, 0.3], [0.1, 0.4]],  # Coefficient matrix (m x m)
         'p': 1,
         "Sigma_eps": [[0.4, 0.1], [0.1, 0.5]],  # Error covariance matrix (m x m)

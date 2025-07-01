@@ -17,7 +17,9 @@ THETA_HAT_FUNC_DICT = {
     'CVaR_95': lambda x: np.mean(x[x < np.percentile(x, 5)]),
     'CVaR_99': lambda x: np.mean(x[x < np.percentile(x, 1)]),
     'VAR1_A_hat': lambda x: var1_estimate_A_2d(x),
+    'A': lambda x: var1_estimate_A_2d(x),  # duplicate for compatibility
     'VAR1_sigma_eps_hat': lambda x: var1_estimate_sigma_eps(x),
+    '$\\Sigma$': lambda x: var1_estimate_sigma_eps(x),  # duplicate for compatibility
 }
 
 TRUE_THETA_FUNC_NORMAL_DICT = {
@@ -214,6 +216,6 @@ def get_real_theta_from_config_var1(
     A = experiment_config.get('A', None)
     Sigma_eps = experiment_config.get('Sigma_eps', None)
     return {
-        'VAR1_A_hat': A,
-        'VAR1_sigma_eps_hat': Sigma_eps,
+        'A': A,
+        '$\\Sigma$': Sigma_eps,
     }

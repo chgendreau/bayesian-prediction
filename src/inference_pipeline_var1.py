@@ -144,7 +144,7 @@ def main():
     # Determine which experiments to run
     experiments_to_run = args.experiments if args.experiments else CONFIG_VAR1.keys()
 
-    random_seeds =[111, 222, 333]  # 444, 555, 321, 234, 432, 795] [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # [111, 222, 333, 444, 555, 321, 234, 432, 795]
+    random_seeds = [21, 22, 23, 24, 25, 26, 27, 28, 29]  #[111, 222, 333] [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # [111, 222, 333, 444, 555, 321, 234, 432, 795]
     for random_seed in random_seeds:
         for experiment_name in experiments_to_run:
             if experiment_name not in CONFIG_VAR1:

@@ -3,7 +3,7 @@ from statsmodels.distributions.empirical_distribution import ECDF
 import json
 import os
 import numpy as np
-from typing import Dict, List, Any, Tuple
+from typing import Dict, Any, Tuple
 
 
 def wasserstein_distance(x, y):
@@ -20,6 +20,21 @@ def ecdf(data):
 def ecdf_inv(data, y):
     """Generalized inverse of the ECDF"""
     return np.quantile(data, y)
+
+
+def frobenius_error_normalized(A_hat, A):
+    """
+    Compute the normalized Frobenius error between two matrices.
+    The error is normalized by the Frobenius norm of the true matrix A.
+    """
+    if A.size == 0:
+        return 0.0
+    if (A.ndim != 2) or (A.ndim != 2):
+        return 0.0
+
+    error = np.linalg.norm(A_hat - A, 'fro')
+    norm_A = np.linalg.norm(A, 'fro')
+    return error / norm_A if norm_A != 0 else error
 
 
 def load_inference_results(experiment_name: str) -> Tuple[Dict[str, Any], Dict[str, Any], np.ndarray]:
@@ -188,3 +203,31 @@ def var1_estimate_2d_sequential(
     E_new = E_n_1 + np.outer(r, r)
 
     return A_new, S_new, E_new
+
+
+def rename_keys(obj, mapping):
+    """
+    Recursively rename dict keys according to mapping.
+    
+    - If obj is a dict: build a new dict with keys replaced via mapping.
+    - If obj is a list or tuple: process each element.
+    - Otherwise: return obj unchanged.
+    """
+    if isinstance(obj, dict):
+        new_d = {}
+        for k, v in obj.items():
+            # rename key if in mapping, otherwise keep original
+            new_key = mapping.get(k, k)
+            new_d[new_key] = rename_keys(v, mapping)
+        return new_d
+
+    elif isinstance(obj, list):
+        return [rename_keys(item, mapping) for item in obj]
+
+    elif isinstance(obj, tuple):
+        return tuple(rename_keys(item, mapping) for item in obj)
+
+    else:
+        return obj
+
+
